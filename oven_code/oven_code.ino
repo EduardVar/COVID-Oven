@@ -4,10 +4,6 @@
 #include <PID_v1.h>
 #include "Adafruit_MAX31855.h"
 
-// defines variables
-long duration;
-int distance;
-
 // HEAT
 #define MAXDO   3
 #define MAXCS   4
@@ -19,6 +15,8 @@ int targetTemp = 0;
 
 // initialize the Thermocouple
 Adafruit_MAX31855 thermocouple(MAXCLK, MAXCS, MAXDO);
+
+double variance = 5;
 
 // LCD
 LiquidCrystal_I2C lcd(0x27, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);
@@ -37,16 +35,14 @@ bool confirmed = false;
 double Setpoint, Input, Output;   // Define Variables we'll be connecting to
 
 // Specify the links and initial tuning parameters
-//double Kp=1, Ki=3.1, Kd=0.2;
 double Kp = 48, Ki = 0.213, Kd = 2700.0;
 
-// PID myPID(&Input, &Output, &Setpoint, 2, 5, 1, DIRECT);
+// Created PID object
 PID myPID(&Input, &Output, &Setpoint, Kp, Ki, Kd, DIRECT );
 
 int WindowSize = 5000;
 unsigned long windowStartTime;
 unsigned long previousMillis = 0;        // will store last time Thermocouple
-
 const long interval = 500;           // interval at which to sample (milliseconds)
 
 // RELAY
@@ -59,28 +55,25 @@ unsigned long switchTime = 0;
 unsigned long ovenTime = 0;
 
 void setup() {
-  // put your setup code here, to run once:
+  Serial.begin(9600);
+  
   // ENCODER
   pinMode(outputA, INPUT);
   pinMode(outputB, INPUT);
   pinMode(outputSW, INPUT_PULLUP);
-
-  Serial.begin(9600);
 
   aLastState = digitalRead(outputA);
 
   // RELAY
   pinMode(RelayPin, OUTPUT);
   digitalWrite(RelayPin, HIGH);
-  
-  //digitalWrite(relayPin, HIGH);
+
+  // PID CONTROLLER
   windowStartTime = millis();
+  
+  myPID.SetOutputLimits(0, WindowSize); // tell the PID to range between 0 and the full window size
 
-  // tell the PID to range between 0 and the full window size
-  myPID.SetOutputLimits(0, WindowSize);
-
-  // turn the PID on
-  myPID.SetMode(AUTOMATIC);
+  myPID.SetMode(AUTOMATIC); // turn the PID on
 
   // LCD
   lcd.begin(16, 2);
@@ -89,26 +82,9 @@ void setup() {
   lcd.print("Current: ");
   lcd.setCursor(0, 1);
   lcd.print("Target: ");
-
-  // iterate over the notes of the melody:
-  for (int thisNote = 0; thisNote < 8; thisNote++) {
-
-    // to calculate the note duration, take one second divided by the note type.
-    //e.g. quarter note = 1000 / 4, eighth note = 1000/8, etc.
-    int noteDuration = 1000 / noteDurations[thisNote];
-    tone(8, melody[thisNote], noteDuration);
-
-    // to distinguish the notes, set a minimum time between them.
-    // the note's duration + 30% seems to work well:
-    int pauseBetweenNotes = noteDuration * 1.30;
-    delay(pauseBetweenNotes);
-    // stop the tone playing:
-    noTone(8);
-  }
 }
 
 void loop() {
-  // put your main code here, to run repeatedly:
   currTime = millis(); // Updates current time
   
   updateSwitch();
@@ -151,7 +127,7 @@ void updateTemperature() {
   
     if (c != lastTemp) {
       lcd.setCursor(9, 0);
-      lcd.print("     ");
+      lcd.print("      ");
       lcd.setCursor(9, 0);
       lcd.print(c, 1);
       lcd.print((char)223);
@@ -159,10 +135,6 @@ void updateTemperature() {
     }
   
     lastTemp = c;
-  }
-
-  if (confirmed) {
-    // Do something here
   }
 }
 
@@ -179,7 +151,7 @@ void updateEncoder() {
     }
     
     lcd.setCursor(8, 1);
-    lcd.print("    ");
+    lcd.print("     ");
     lcd.setCursor(8, 1);
     lcd.print(targetTemp);
     lcd.print((char)223);
@@ -195,35 +167,22 @@ void updateRelay() {
   if (currentMillis - previousMillis >= interval) {
     // save the last time you blinked the LED
     previousMillis = currentMillis;
-
-    // Serial.print(currentMillis);
-    Serial.print(" Time: ");
-    Serial.print(currentMillis);
-    Serial.print(" Temp: ");
-    Serial.print(c);
-    Serial.print(" Set Point: ");
-    Serial.print(Setpoint);
-    Serial.println();
   }
 
   Input = c;
   myPID.Compute();
 
-
   /************************************************
      turn the output pin on/off based on pid output
    ************************************************/
   unsigned long now = millis();
-  if (now - windowStartTime > WindowSize)
-  { //time to shift the Relay Window
+  if (now - windowStartTime > WindowSize) { 
+    //time to shift the Relay Window
     windowStartTime += WindowSize;
   }
-  if (Output > now - windowStartTime) {
-    
-    digitalWrite(RelayPin, LOW);
-   // Serial.print("HEAT ON    ");
-  }  else {
-    digitalWrite(RelayPin, HIGH);
- //   Serial.print("HEAT OFF   ");
-  }
+  
+  if (c < targetTemp && Output > now - windowStartTime)
+    digitalWrite(RelayPin, LOW);  // HEAT ON
+  else
+    digitalWrite(RelayPin, HIGH); // HEAT OFF
 }
