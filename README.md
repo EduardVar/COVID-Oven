@@ -11,7 +11,7 @@ Developer: [Eduard Varshavsky](https://github.com/EduardVar) (Queen's 2022)
 
 Technical Advisor: Igor Varshavsky (Software Engineer)
 
-
-Link to the Devpost: https://devpost.com/software/covid19-personal-face-mask-sterilizer
+### Links:
+Devpost: https://devpost.com/software/covid19-personal-face-mask-sterilizer
 
 Youtube explanation of the project: https://youtu.be/Q1-Sai3K9rU
