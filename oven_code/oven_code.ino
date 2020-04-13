@@ -16,7 +16,13 @@ int targetTemp = 0;
 // initialize the Thermocouple
 Adafruit_MAX31855 thermocouple(MAXCLK, MAXCS, MAXDO);
 
-double variance = 5;
+// TIMER
+unsigned long targetTime = 60 * 60000;
+unsigned long timerStart;
+int currMin = 0;
+int lastMin = -1;
+
+double variance = 0.4;
 
 // LCD
 LiquidCrystal_I2C lcd(0x27, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);
@@ -54,6 +60,9 @@ unsigned long tempTime = 0;
 unsigned long switchTime = 0;
 unsigned long ovenTime = 0;
 
+boolean pressed = false;
+boolean rightTemp = false;
+
 void setup() {
   Serial.begin(9600);
   
@@ -89,6 +98,8 @@ void loop() {
   
   updateSwitch();
 
+  if (confirmed) updateTimer();
+
   updateTemperature();
 
   updateEncoder();
@@ -102,20 +113,25 @@ void updateSwitch () {
     switchTime = currTime + 2000; // 2000 ms delay between next update
     
     confirmed = !confirmed;
+    pressed = true;
   } 
   else if (switchTime > currTime) {
     if (confirmed) {
       lcd.setCursor(15, 1);
       lcd.print("!");
       Setpoint = targetTemp;
+
+      timerStart = currTime;
+      rightTemp = false;
     } else {
       lcd.setCursor(15, 1);
       lcd.print("X");
     }
   } 
-  else if (currTime > switchTime) {
+  else if (currTime > switchTime && pressed) {
     lcd.setCursor(15, 1);
     lcd.print(" ");
+    pressed = false;
   }
 }
 
@@ -135,6 +151,35 @@ void updateTemperature() {
     }
   
     lastTemp = c;
+  }
+}
+
+void updateTimer() {
+  currMin = (int)floor((currTime - timerStart) / 60000);
+  Serial.println("new");
+  Serial.println(currMin);
+  Serial.println(currTime);
+  Serial.println(timerStart);
+
+  if (lastMin != currMin && !pressed && rightTemp) {
+    lcd.setCursor(14, 1);
+    lcd.print("  ");
+
+    Serial.println("HERE");
+    
+    if (currMin < 10) {
+      lcd.setCursor(15, 1);
+      lcd.print(currMin);
+      Serial.println("Printing Single");
+    } else {
+      lcd.setCursor(14, 1);
+      lcd.print(currMin);
+    }
+
+    lastMin = currMin;
+  } else if (!rightTemp) {
+    lcd.setCursor(14, 1);
+    lcd.print("  ");
   }
 }
 
@@ -185,4 +230,17 @@ void updateRelay() {
     digitalWrite(RelayPin, LOW);  // HEAT ON
   else
     digitalWrite(RelayPin, HIGH); // HEAT OFF
+
+  // Checks if current temp is within target temp range
+  if (abs(c - targetTemp) <= variance) {
+    rightTemp = true;
+    
+    if (timerStart >= targetTime) {
+      Serial.println("\nDone");
+    }
+  } else {
+    // Resets the start of the time
+    timerStart = currTime;
+    rightTemp = false;
+  }
 }
