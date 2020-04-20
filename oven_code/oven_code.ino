@@ -235,7 +235,7 @@ void updateRelay() {
   if (abs(c - targetTemp) <= variance) {
     rightTemp = true;
 
-    if (timerStart >= targetTime) {
+    if (currTime - timerStart >= targetTime) {
       Serial.println("\nDone");
       done = true;
     }
