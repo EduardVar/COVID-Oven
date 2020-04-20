@@ -17,12 +17,13 @@ int targetTemp = 0;
 Adafruit_MAX31855 thermocouple(MAXCLK, MAXCS, MAXDO);
 
 // TIMER
-unsigned long targetTime = 60 * 60000;
+unsigned long targetTime = 15 * 60000;
 unsigned long timerStart;
 int currMin = 0;
 int lastMin = -1;
+boolean done = false;
 
-double variance = 0.4;
+double variance = 0.8;
 
 // LCD
 LiquidCrystal_I2C lcd(0x27, 2, 1, 0, 4, 5, 6, 7, 3, POSITIVE);
@@ -65,7 +66,7 @@ boolean rightTemp = false;
 
 void setup() {
   Serial.begin(9600);
-  
+
   // ENCODER
   pinMode(outputA, INPUT);
   pinMode(outputB, INPUT);
@@ -79,7 +80,7 @@ void setup() {
 
   // PID CONTROLLER
   windowStartTime = millis();
-  
+
   myPID.SetOutputLimits(0, WindowSize); // tell the PID to range between 0 and the full window size
 
   myPID.SetMode(AUTOMATIC); // turn the PID on
@@ -95,7 +96,7 @@ void setup() {
 
 void loop() {
   currTime = millis(); // Updates current time
-  
+
   updateSwitch();
 
   if (confirmed) updateTimer();
@@ -104,17 +105,17 @@ void loop() {
 
   updateEncoder();
 
-  if (confirmed && currTime > switchTime) updateRelay();
+  if (confirmed && !done && currTime > switchTime) updateRelay();
   else digitalWrite(RelayPin, HIGH);
 }
 
 void updateSwitch () {
   if (currTime > switchTime && !digitalRead(outputSW)) {
     switchTime = currTime + 2000; // 2000 ms delay between next update
-    
+
     confirmed = !confirmed;
     pressed = true;
-  } 
+  }
   else if (switchTime > currTime) {
     if (confirmed) {
       lcd.setCursor(15, 1);
@@ -123,11 +124,12 @@ void updateSwitch () {
 
       timerStart = currTime;
       rightTemp = false;
+      done = false;
     } else {
       lcd.setCursor(15, 1);
       lcd.print("X");
     }
-  } 
+  }
   else if (currTime > switchTime && pressed) {
     lcd.setCursor(15, 1);
     lcd.print(" ");
@@ -136,11 +138,11 @@ void updateSwitch () {
 }
 
 void updateTemperature() {
-  if (currTime > tempTime) { 
+  if (currTime > tempTime) {
     tempTime = currTime + 1000; // 1000 ms delay between next update
-    
+
     c = thermocouple.readCelsius();
-  
+
     if (c != lastTemp) {
       lcd.setCursor(9, 0);
       lcd.print("      ");
@@ -149,24 +151,19 @@ void updateTemperature() {
       lcd.print((char)223);
       lcd.print('C');
     }
-  
+
     lastTemp = c;
   }
 }
 
 void updateTimer() {
   currMin = (int)floor((currTime - timerStart) / 60000);
-  Serial.println("new");
-  Serial.println(currMin);
-  Serial.println(currTime);
-  Serial.println(timerStart);
-
   if (lastMin != currMin && !pressed && rightTemp) {
     lcd.setCursor(14, 1);
     lcd.print("  ");
 
     Serial.println("HERE");
-    
+
     if (currMin < 10) {
       lcd.setCursor(15, 1);
       lcd.print(currMin);
@@ -174,7 +171,10 @@ void updateTimer() {
     } else {
       lcd.setCursor(14, 1);
       lcd.print(currMin);
+      Serial.println("Printing Double");
     }
+
+    Serial.println(currMin);
 
     lastMin = currMin;
   } else if (!rightTemp) {
@@ -194,7 +194,7 @@ void updateEncoder() {
       if (targetTemp >= 5)
         targetTemp -= 5;
     }
-    
+
     lcd.setCursor(8, 1);
     lcd.print("     ");
     lcd.setCursor(8, 1);
@@ -221,11 +221,11 @@ void updateRelay() {
      turn the output pin on/off based on pid output
    ************************************************/
   unsigned long now = millis();
-  if (now - windowStartTime > WindowSize) { 
+  if (now - windowStartTime > WindowSize) {
     //time to shift the Relay Window
     windowStartTime += WindowSize;
   }
-  
+
   if (c < targetTemp && Output > now - windowStartTime)
     digitalWrite(RelayPin, LOW);  // HEAT ON
   else
@@ -234,9 +234,10 @@ void updateRelay() {
   // Checks if current temp is within target temp range
   if (abs(c - targetTemp) <= variance) {
     rightTemp = true;
-    
+
     if (timerStart >= targetTime) {
       Serial.println("\nDone");
+      done = true;
     }
   } else {
     // Resets the start of the time
