@@ -18,7 +18,7 @@ Adafruit_MAX31855 thermocouple(MAXCLK, MAXCS, MAXDO);
 
 // TIMER
 unsigned long targetTime = 15 * 60000;
-unsigned long timerStart;
+unsigned long timerStart = 2147483647;
 int currMin = 0;
 int lastMin = -1;
 boolean done = false;
@@ -122,7 +122,7 @@ void updateSwitch () {
       lcd.print("!");
       Setpoint = targetTemp;
 
-      timerStart = 2147483647;
+      timerStart = 4294967295;
       rightTemp = false;
       done = false;
     } else {
@@ -234,11 +234,13 @@ void updateRelay() {
   // Checks if current temp is within target temp range
   if (abs(c - targetTemp) <= variance) {
     rightTemp = true;
-    timerStart = currTime;
+
+    if (!rightTemp)
+      timerStart = currTime;
   }
 
   if (currTime - timerStart >= targetTime) {
-    Serial.println("\nDone");
-    done = true;
+      Serial.println("\nDone");
+      done = true;
   }
 }
