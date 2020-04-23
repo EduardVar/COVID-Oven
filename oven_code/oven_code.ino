@@ -99,7 +99,7 @@ void loop() {
 
   updateSwitch();
 
-  if (confirmed && !done) updateTimer();
+  if (confirmed) updateTimer();
 
   updateTemperature();
 
@@ -107,12 +107,6 @@ void loop() {
 
   if (confirmed && !done && currTime > switchTime) updateRelay();
   else digitalWrite(RelayPin, HIGH);
-
-  // Prints to LCD that 
-  if (done) {
-    lcd.setCursor(14, 1); 
-    lcd.print(" D");
-  }
 }
 
 void updateSwitch () {
