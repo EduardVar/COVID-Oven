@@ -128,7 +128,7 @@ void updateSwitch () {
       lcd.print("!");
       Setpoint = targetTemp;
 
-      timerStart = currTime;
+      timerStart = 2147483647;
       rightTemp = false;
       done = false;
     } else {
@@ -240,14 +240,11 @@ void updateRelay() {
   // Checks if current temp is within target temp range
   if (abs(c - targetTemp) <= variance) {
     rightTemp = true;
-
-    if (currTime - timerStart >= targetTime) {
-      Serial.println("\nDone");
-      done = true;
-    }
-  } else {
-    // Resets the start of the time
     timerStart = currTime;
-    rightTemp = false;
+  }
+
+  if (currTime - timerStart >= targetTime) {
+    Serial.println("\nDone");
+    done = true;
   }
 }
