@@ -17,7 +17,7 @@ int targetTemp = 0;
 Adafruit_MAX31855 thermocouple(MAXCLK, MAXCS, MAXDO);
 
 // TIMER
-unsigned long targetTime = 15 * 60000;
+unsigned long targetTime = 60 * 60000;
 unsigned long timerStart = 2147483647;
 int currMin = 0;
 int lastMin = -1;
@@ -99,7 +99,7 @@ void loop() {
 
   updateSwitch();
 
-  if (confirmed) updateTimer();
+  if (confirmed && !done) updateTimer();
 
   updateTemperature();
 
@@ -107,6 +107,11 @@ void loop() {
 
   if (confirmed && !done && currTime > switchTime) updateRelay();
   else digitalWrite(RelayPin, HIGH);
+
+  if (done) {
+    lcd.setCursor(14, 1);
+    lcd.print(" D");
+  }
 }
 
 void updateSwitch () {
